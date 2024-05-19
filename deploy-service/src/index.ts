@@ -3,25 +3,44 @@ import { downloadS3Folder,copyFinalDist } from "./aws";
 import { buildProject } from "./utils";
 import dotenv from "dotenv"
 
-const subscriber = createClient();
-subscriber.connect();
 dotenv.config();
 
-async function main() {
-    while (1) {
-        // pop from the right side 
-        const response = await subscriber.brPop(
-            commandOptions({ isolated: true }),
-            'build-queue',
-            0
-        );
+// you cannot use the same client to perform both get and put operations 
+const subscriber = createClient();
+const publisher = createClient();
 
-        const id = response?.element //@ts-ignore
-        console.log({id})
-        // await downloadS3Folder(`output/${id}`)
-        await buildProject("e2dsp");
-        
-        copyFinalDist("e2dsp");
+subscriber.connect();
+publisher.connect();
+
+
+async function main() {
+    while (true) {
+        try {
+            // Pop from the right side of the 'build-queue'
+            const response = await subscriber.brPop(
+                commandOptions({ isolated: true }),
+                'build-queue',
+                0
+            );
+
+            const id = response?.element; // Ensure id is of type string
+            if (!id) {
+                console.error("No ID found in the response");
+                continue;
+            }
+            
+            console.log({ id });
+
+            await downloadS3Folder(`output/${id}`);
+            await buildProject(id);
+            copyFinalDist(id);
+
+            // Use type assertion to ensure id is a string
+            await publisher.hSet("status", id as string, "uploaded");
+        } catch (error) {
+            console.error("Error processing job:", error);
+        }
     }
 }
+
 main();
