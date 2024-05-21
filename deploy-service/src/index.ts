@@ -1,5 +1,5 @@
 import { createClient, commandOptions } from "redis";
-import { downloadS3Folder,copyFinalDist } from "./aws";
+import { downloadS3Folder, copyFinalDist } from "./aws";
 import { buildProject } from "./utils";
 import dotenv from "dotenv"
 
@@ -28,7 +28,7 @@ async function main() {
                 console.error("No ID found in the response");
                 continue;
             }
-            
+
             console.log({ id });
 
             await downloadS3Folder(`output/${id}`);
@@ -36,7 +36,7 @@ async function main() {
             copyFinalDist(id);
 
             // Use type assertion to ensure id is a string
-            await publisher.hSet("status", id as string, "uploaded");
+            await publisher.hSet("status", id as string, "deployed");
         } catch (error) {
             console.error("Error processing job:", error);
         }
